@@ -202,7 +202,7 @@ class SelfReference(Transformation):
 
 class SimpleNormalize(Transformation):
 
-    def __init__(self, method='median', value=1, datatype=DataTypes.Phase):
+    def __init__(self, method='median', value=1.0, datatype=DataTypes.Phase):
         self.method = method
         self.value = value
         self.datatype = datatype
