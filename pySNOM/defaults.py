@@ -13,4 +13,9 @@ class Defaults:
             "Contact Mode 2D": "ContactAFM",
         }
 
+        self.spectrum_mode_defs = {
+            "Fourier Scan": "nanoFTIR",
+            "Pointspectroscopy PTE+": "PTE"
+        }
+
 defaults = Defaults()
