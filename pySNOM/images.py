@@ -156,14 +156,14 @@ class LineLevel(Transformation):
 
     def transform(self, data):
         if self.method == 'median':
-            norm = np.median(data, axis=1, keepdims=True)
+            norm = np.nanmedian(data, axis=1, keepdims=True)
         elif self.method == 'mean':
-            norm = np.mean(data, axis=1, keepdims=True)
+            norm = np.nanmean(data, axis=1, keepdims=True)
         elif self.method == 'difference':
             if self.datatype == DataTypes.Amplitude:
-                norm = np.median(data[1:] / data[:-1], axis=1, keepdims=True)
+                norm = np.nanmedian(np.divide(data[1:],data[:-1]), axis=1, keepdims=True)
             else:
-                norm = np.median(data[1:] - data[:-1], axis=1, keepdims=True)
+                norm = np.nanmedian(np.subtract(data[1:],data[:-1]), axis=1, keepdims=True)
             data = data[:-1]  # difference does not make sense for the last row
         else:
             if self.datatype == DataTypes.Amplitude:
@@ -172,9 +172,9 @@ class LineLevel(Transformation):
                 norm = 0
 
         if self.datatype == DataTypes.Amplitude:
-            return data / norm
+            return np.divide(data,norm)
         else:
-            return data - norm
+            return np.subtract(data,norm)
 
 class RotatePhase(Transformation):
 
@@ -196,7 +196,7 @@ class SelfReference(Transformation):
         if self.datatype == DataTypes.Amplitude:
             return np.divide(data, self.referencedata)
         elif self.datatype == DataTypes.Phase:
-            return data-self.referencedata
+            return np.subtract(data,self.referencedata)
         else:
             raise RuntimeError("Self-referencing makes only sense for amplitude or phase data")
 
@@ -213,17 +213,17 @@ class SimpleNormalize(Transformation):
                 if self.datatype == DataTypes.Amplitude:
                     return np.divide(data, np.median(data))
                 else:
-                    return data - np.median(data)
+                    return np.subtract(data, np.median(data))
             case 'mean':
                 if self.datatype == DataTypes.Amplitude:
                     return np.divide(data, np.mean(data))
                 else:
-                    return data - np.mean(data)
+                    return np.subtract(data, np.mean(data))
             case 'manual':
                 if self.datatype == DataTypes.Amplitude:
                     return np.divide(data, self.value)
                 else:
-                    return data - self.value
+                    return np.subtract(data,self.value)
                 
 class BackgroundPolyFit(Transformation):
 
@@ -238,6 +238,11 @@ class BackgroundPolyFit(Transformation):
         y = list(range(0, Z.shape[0]))
         X, Y = np.meshgrid(x, y)
         x, y = X.ravel(), Y.ravel()
+        b = Z.ravel()
+        notnanidxs = np.argwhere(~np.isnan(b))
+        b = np.ravel(b[notnanidxs])
+        x = np.ravel(x[notnanidxs])
+        y = np.ravel(y[notnanidxs])
 
         def get_basis(x, y, max_order_x=1, max_order_y=1):
             """Return the fit basis polynomials: 1, x, x^2, ..., xy, x^2y, ... etc."""
@@ -250,7 +255,6 @@ class BackgroundPolyFit(Transformation):
 
         basis = get_basis(x, y, self.xorder, self.yorder)
         A = np.vstack(basis).T
-        b = Z.ravel()
         c, r, rank, s = np.linalg.lstsq(A, b, rcond=None)
 
         background = np.sum(c[:, None, None] * np.array(get_basis(X, Y, self.xorder, self.yorder)).reshape(len(basis), *X.shape),axis=0)
@@ -258,4 +262,4 @@ class BackgroundPolyFit(Transformation):
         if self.datatype == DataTypes["Amplitude"]:
             return np.divide(Z, background), background
         else:
-            return Z-background, background
+            return np.subtract(Z,background), background
