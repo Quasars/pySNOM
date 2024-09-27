@@ -192,6 +192,7 @@ class SelfReference(Transformation):
     def __init__(self, referencedata=1, datatype=DataTypes.Phase):
         self.datatype = datatype
         self.referencedata = referencedata
+
     def transform(self, data):
         if self.datatype == DataTypes.Amplitude:
             return np.divide(data, self.referencedata)
@@ -228,8 +229,8 @@ class SimpleNormalize(Transformation):
 class BackgroundPolyFit(Transformation):
 
     def __init__(self, xorder=1, yorder=1, datatype=DataTypes.Phase):
-        self.xorder = int(xorder)
-        self.yorder = int(yorder)
+        self.xorder = xorder
+        self.yorder = yorder
         self.datatype = datatype
         
     def transform(self, data):
@@ -247,10 +248,14 @@ class BackgroundPolyFit(Transformation):
         def get_basis(x, y, max_order_x=1, max_order_y=1):
             """Return the fit basis polynomials: 1, x, x^2, ..., xy, x^2y, ... etc."""
             basis = []
-            for i in range(max_order_y+1):
-                # for j in range(max_order_x - i +1):
-                for j in range(max_order_x+1):
-                    basis.append(x**j * y**i)
+            try:
+                for i in range(max_order_y+1):
+                    # for j in range(max_order_x - i +1):
+                    for j in range(max_order_x+1):
+                        basis.append(x**j * y**i)
+            except ValueError:
+                print("X and Y order must be integer!")
+
             return basis
 
         basis = get_basis(x, y, self.xorder, self.yorder)
