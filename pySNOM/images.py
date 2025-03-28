@@ -189,36 +189,57 @@ def type_from_channelname(channelname):
 
 
 class Transformation:
+
     def transform(self, data):
         raise NotImplementedError()
 
 
-class LineLevel(Transformation):
+class MaskedTransformation(Transformation):
+
+    def calculate(self, data, mask=None):
+        raise NotImplementedError()
+    
+    def correct(self, data, correction):
+        """ Applies the calculated corrections to the data """
+        if self.datatype == DataTypes.Amplitude:
+            return data / correction
+        else:
+            return data - correction
+
+    def transform(self, data, mask=None):
+        """ Calculates and applies the corrections to the data taking into account the mask if given """
+        correction = self.calculate(data, mask=mask)
+        return self.correct(data, correction)
+
+
+class LineLevel(MaskedTransformation):
     def __init__(self, method="median", datatype=DataTypes.Phase):
         self.method = method
         self.datatype = datatype
 
-    def transform(self, data):
-        if self.method == "median":
+    def calculate(self, data, mask = None):
+        if mask is not None:
+            data = mask*data
+
+        if self.method == 'median':
             norm = np.nanmedian(data, axis=1, keepdims=True)
         elif self.method == "mean":
             norm = np.nanmean(data, axis=1, keepdims=True)
         elif self.method == "difference":
             if self.datatype == DataTypes.Amplitude:
                 norm = np.nanmedian(data[1:] / data[:-1], axis=1, keepdims=True)
+                norm = np.append(norm,1)
             else:
                 norm = np.nanmedian(data[1:] - data[:-1], axis=1, keepdims=True)
-            data = data[:-1]  # difference does not make sense for the last row
+                norm = np.append(norm,0)  # difference does not make sense for the last row
+            norm = np.reshape(norm, (norm.size,1))
         else:
             if self.datatype == DataTypes.Amplitude:
                 norm = 1
             else:
                 norm = 0
 
-        if self.datatype == DataTypes.Amplitude:
-            return data / norm
-        else:
-            return data - norm
+        return norm
 
 
 class RotatePhase(Transformation):
@@ -248,43 +269,41 @@ class SelfReference(Transformation):
             )
 
 
-class SimpleNormalize(Transformation):
+class SimpleNormalize(MaskedTransformation):
     def __init__(self, method="median", value=1.0, datatype=DataTypes.Phase):
         self.method = method
         self.value = value
         self.datatype = datatype
 
-    def transform(self, data):
+    def calculate(self, data, mask=None):
+        """ Calculates and returns the image corrections using mask (if given) without applying it to the data"""
+        if mask is not None:
+            data = mask*data
+
         match self.method:
-            case "median":
-                if self.datatype == DataTypes.Amplitude:
-                    return data / np.nanmedian(data)
-                else:
-                    return data - np.nanmedian(data)
-            case "mean":
-                if self.datatype == DataTypes.Amplitude:
-                    return data / np.nanmean(data)
-                else:
-                    return data - np.nanmean(data)
-            case "manual":
-                if self.datatype == DataTypes.Amplitude:
-                    return data / self.value
-                else:
-                    return data - self.value
-            case "min":
-                if self.datatype == DataTypes.Amplitude:
-                    return data / np.nanmin(data)
-                else:
-                    return data - np.nanmin(data)
+            case 'median':
+                norm = np.nanmedian(data)
+            case 'mean':
+                norm = np.nanmean(data)
+            case 'manual':
+                norm = self.value
+            case 'min':
+                norm = np.nanmin(data)
 
+        return norm
+                
 
-class BackgroundPolyFit(Transformation):
+class BackgroundPolyFit(MaskedTransformation):
     def __init__(self, xorder=1, yorder=1, datatype=DataTypes.Phase):
         self.xorder = int(xorder)
         self.yorder = int(yorder)
         self.datatype = datatype
 
-    def transform(self, data):
+    def calculate(self, data, mask = None):
+        """ Calculates and returns the fitted polynomial background using mask (if given) without applying it to the data"""
+        if mask is not None:
+            data = mask*data
+
         Z = copy.deepcopy(data)
         x = list(range(0, Z.shape[1]))
         y = list(range(0, Z.shape[0]))
@@ -310,18 +329,21 @@ class BackgroundPolyFit(Transformation):
             A = np.vstack(basis).T
             c, r, rank, s = np.linalg.lstsq(A, b, rcond=None)
 
-            background = np.sum(
-                c[:, None, None]
-                * np.array(get_basis(X, Y, self.xorder, self.yorder)).reshape(
-                    len(basis), *X.shape
-                ),
-                axis=0,
-            )
+            background = np.sum(c[:, None, None] * np.array(get_basis(X, Y, self.xorder, self.yorder)).reshape(len(basis), *X.shape),axis=0)
+            
         except ValueError:
             background = np.ones(np.shape(data))
             print("X and Y order must be integer!")
 
-        if self.datatype == DataTypes["Amplitude"]:
-            return Z / background, background
-        else:
-            return Z - background, background
+        return background
+
+        
+# TODO: Helper functions to create masks or turn other types of masks into 1/Nan mask
+def mask_from_booleans(bool_mask, bad_values = False):
+    """ Turn a boolean array to an array conatining nans and ones"""
+    mshape = np.shape(bool_mask)
+    return np.where(bool_mask==bad_values,np.nan*np.ones(mshape),np.ones(mshape))
+
+def mask_from_datacondition(condition):
+    mshape = np.shape(condition)
+    return np.where(condition,np.nan*np.ones(mshape),np.ones(mshape))
