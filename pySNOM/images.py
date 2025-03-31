@@ -4,6 +4,10 @@ import re
 from enum import Enum
 from pySNOM.defaults import Defaults
 
+from skimage.transform import warp
+from skimage.registration import optical_flow_tvl1, phase_cross_correlation
+from scipy.ndimage import fourier_shift
+
 MeasurementModes = Enum(
     "MeasurementModes",
     ["None", "AFM", "PsHet", "WLI", "PTE", "TappingAFMIR", "ContactAFM"],
@@ -347,3 +351,196 @@ def mask_from_booleans(bool_mask, bad_values = False):
 def mask_from_datacondition(condition):
     mshape = np.shape(condition)
     return np.where(condition,np.nan*np.ones(mshape),np.ones(mshape))
+
+
+class CalculateOpticalFlow(Transformation):
+    """Calculates the pixel coordiate drifts between reference and template image"""
+
+    def __init__(self, image_ref):
+        self.image_ref = image_ref
+
+    def transform(self, image):
+        v, u = optical_flow_tvl1(
+            self.image_ref / np.nanmax(self.image_ref), image / np.nanmax(image)
+        )
+        return v, u
+
+
+class WrapImage(Transformation):
+    """Applies the pixel-by-pixel drift correction calculated by OpticalFlow"""
+
+    def __init__(self, v, u):
+        self.v = v
+        self.u = u
+
+    def transform(self, image):
+        nr, nc = image.shape
+        row_coords, col_coords = np.meshgrid(
+            np.arange(nr), np.arange(nc), indexing="ij"
+        )
+        return warp(
+            image, np.array([row_coords + self.v, col_coords + self.u]), mode="edge"
+        )
+
+
+class CalculateXCorrDrift(Transformation):
+    """Calculates the drift between reference and template image"""
+
+    def __init__(self, image_ref):
+        self.image_ref = image_ref
+
+    def transform(self, image):
+        shift, _, _ = phase_cross_correlation(self.image_ref, image)
+        return shift
+
+
+class CorrectImageDrift(Transformation):
+    """Rearranges image pixels to correct image shift calculated by cross-correlation"""
+
+    def __init__(self, shift):
+        self.shift = shift
+
+    def transform(self, image):
+        offset_phase = fourier_shift(np.fft.fftn(image), self.shift)
+        offset_phase = np.fft.ifftn(offset_phase)
+        return offset_phase.real
+
+
+class AlignImageStack(Transformation):
+    """Calculates the drift between the given images and organize the comman areas into an aligned stack"""
+
+    def __init__(self):
+        pass
+
+    def calculate(self, images):
+        shifts = []
+        crossrect = [0, 0, np.shape(images[0])[0], np.shape(images[0])[1]]
+        if len(images) > 1:
+            xcorr = CalculateXCorrDrift(images[0])
+            for i in range(len(images)):
+                if i > 0:
+                    shifts.append(xcorr.transform(images[i]))
+                    crossrect = shifted_cross_section(
+                        rect1=crossrect,
+                        rect2=[
+                            -shifts[-1][0],
+                            shifts[-1][1],
+                            np.shape(images[i])[0],
+                            np.shape(images[i])[1],
+                        ],
+                    )
+            return shifts, crossrect
+        else:
+            return None
+
+    def transform(self, images, shifts, crossrect):
+        aligned_stack = []
+        for i in range(len(images)):
+            if i > 0:
+                shifter = CorrectImageDrift(shifts[i - 1])
+                aligned_stack.append(shifter.transform(images[i]))
+                aligned_stack[i] = cut_image(aligned_stack[i], crossrect)
+            else:
+                aligned_stack.append(cut_image(images[i], crossrect))
+        return aligned_stack
+
+
+def sort_image_stack(images, wns):
+    """Sort the image stack based on the wavenumber list"""
+
+    idxs = np.argsort(np.asarray(wns))
+    images = [images[i] for i in idxs]
+    wns = [wns[i] for i in idxs]
+
+    return images, wns
+
+
+def create_nparray_stack(measlist):
+    """Creates a numpy array stack from a list of measurements, organized as [ rows, columns, wavelengths ] (compatible with quasar io utils)"""
+
+    stack = np.zeros(
+        (np.shape(measlist[0])[0], np.shape(measlist[0])[1], len(measlist))
+    )
+
+    for i, meas in enumerate(measlist):
+        stack[:, :, i] = meas
+
+    return stack
+
+
+def dict_from_imagestack(X, channelname, wn=None, is_interferogram = True):
+    """Converts the image stack into a pySNOM spectra or interferograms compatible dictionary"""
+    final_dict = {}
+    params = {}
+
+    X = np.asarray(X)
+
+    params["PixelArea"] = [X.shape[1], X.shape[2], X.shape[0]]
+    params["Averaging"] = 1
+    params["Scan"] = "Fourier Scan"
+
+    final_dict[channelname] = flatten_stack(X)
+
+    y_loc = np.repeat(np.arange(X.shape[1]), X.shape[2])
+    x_loc = np.tile(np.arange(X.shape[2]), X.shape[1])
+
+    final_dict["Row"] = np.repeat(y_loc, X.shape[0])
+    final_dict["Column"] = np.repeat(x_loc, X.shape[0])
+
+    if is_interferogram:
+        depth_channel_name = "M"
+    else:
+        depth_channel_name = "Wavenumber"
+
+    if wn is not None:
+        final_dict[depth_channel_name] = np.tile(wn, X.shape[1] * X.shape[2])
+    else:
+        final_dict[depth_channel_name] = np.tile(
+            np.arange(X.shape[0]), X.shape[1] * X.shape[2]
+        )
+
+    return final_dict, params
+
+def flatten_stack(imagestack):
+    """ Flatten out values in an image stack to be aneble to add it to spectral dictionaries """
+    imagestack = np.asarray(imagestack)
+    flattened_values = imagestack.reshape((imagestack.shape[0], imagestack.shape[1] * imagestack.shape[2]))
+    return np.ravel(flattened_values, order="F")
+
+def shifted_cross_section(rect1: list, rect2: list):
+    """Calculates the cross-section of two rectangle shifted to each other"""
+    x1 = rect1[1]
+    x2 = rect2[1]
+    y1 = rect1[0]
+    y2 = rect2[0]
+    W1 = rect1[3]
+    W2 = rect2[3]
+    H1 = rect1[2]
+    H2 = rect2[2]
+
+    if y2 > y1:
+        Hn = H1 - (y2 - y1)
+        yn = y2
+    elif (y2 < y1) and (y1 + H1 > y2 + H2):  # Negative shift and higher than H2
+        Hn = H2 + (y2 - y1)
+        yn = y1
+    else:
+        Hn = H1
+        yn = y1
+
+    if x2 > x1:  # Positive shift
+        Wn = W1 - (x2 - x1)
+        xn = x2
+    elif (x2 < x1) and (x1 + W1 > x2 + W2):  # Negative shift and higher than W2
+        Wn = W2 + (x2 - x1)
+        xn = x1
+    else:
+        Wn = W1
+        xn = x1
+
+    return int(yn), int(xn), int(Hn), int(Wn)
+
+
+def cut_image(image, rect):
+    """Cuts the part of the image array defined by rectangle"""
+    return image[-(rect[2]) : -(rect[0] + 1), rect[1] : rect[1] + rect[3]]
