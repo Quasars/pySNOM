@@ -10,7 +10,7 @@ from pySNOM import readers, spectra
 class test_Neaspectrum(unittest.TestCase):
     def test_pointspectrum_object(self):
         f = "datasets/testspectrum_singlepoint.txt"
-        file_reader = readers.NeaSpectrumReader(os.path.join(pySNOM.__path__[0], f))
+        file_reader = readers.NeaSpectralReader(os.path.join(pySNOM.__path__[0], f))
         data, params = file_reader.read()
 
         s = spectra.NeaSpectrum(data, params)
@@ -22,10 +22,10 @@ class test_Neaspectrum(unittest.TestCase):
 
     def test_transfromations(self):
         f = "datasets/testspectrum_singlepoint.txt"
-        file_reader = readers.NeaSpectrumReader(os.path.join(pySNOM.__path__[0], f))
+        file_reader = readers.NeaSpectralReader(os.path.join(pySNOM.__path__[0], f))
         data, params = file_reader.read()
         fref = "datasets/testspectrum_singlepoint_ref.txt"
-        file_reader_ref = readers.NeaSpectrumReader(
+        file_reader_ref = readers.NeaSpectralReader(
             os.path.join(pySNOM.__path__[0], fref)
         )
         data_ref, params_ref = file_reader_ref.read()

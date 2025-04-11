@@ -3,8 +3,9 @@ import gsffile
 import numpy as np
 import pandas as pd
 import os
-import pathlib
+from pathlib import PurePath
 import re
+
 
 class Reader:
     def __init__(self, fullfilepath=None):
@@ -21,7 +22,7 @@ class GwyReader(Reader):
         gwyobj = gwyfile.load(self.filename)
         allchannels = gwyfile.util.get_datafields(gwyobj)
 
-        if self.channelname == None:
+        if self.channelname is None:
             return allchannels
         else:
             # Read channels from gwyfile and return only a specific one
@@ -48,215 +49,12 @@ class GsfReader(Reader):
         return channel
 
 
-class NeaInfoReader(Reader):
+class NeaHeaderReader(Reader):
     def __init__(self, fullfilepath=None):
         super().__init__(fullfilepath)
 
-    def read(self):
-        # reader tested for neascan version 2.1.10719.0
-        fid = open(self.filename, errors="replace")
-        infodict = {}
-
-        linestring = ""
-        Nlines = 0
-
-        while "Version:" not in linestring:
-            Nlines += 1
-            linestring = fid.readline()
-            if Nlines > 1:
-                ct = linestring.split("\t")
-                fieldname = ct[0][2:-1]
-                fieldname = fieldname.replace(" ", "")
-
-                if "Scanner Center Position" in linestring:
-                    fieldname = fieldname[:-5]
-                    infodict[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Scan Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    infodict[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Pixel Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    infodict[fieldname] = [int(ct[2]), int(ct[3]), int(ct[4])]
-
-                elif "Interferometer Center/Distance" in linestring:
-                    fieldname = fieldname.replace("/", "")
-                    infodict[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Regulator" in linestring:
-                    fieldname = fieldname[:-7]
-                    infodict[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Q-Factor" in linestring:
-                    fieldname = fieldname.replace("-", "")
-                    infodict[fieldname] = float(ct[2])
-
-                else:
-                    fieldname = ct[0][2:-1]
-                    fieldname = fieldname.replace(" ", "")
-                    val = ct[2]
-                    val = val.replace(",", "")
-                    try:
-                        infodict[fieldname] = float(val)
-                    except:
-                        infodict[fieldname] = val.strip()
-        fid.close()
-        return infodict
-
-
-class NeaSpectrumReader(Reader):
-    def __init__(self, fullfilepath=None):
-        super().__init__(fullfilepath)
-
-    def read(self):
-        # reader tested for neascan version 2.1.10719.0
-        fid = open(self.filename, errors="replace")
-        data = {}
-        params = {}
-
-        linestring = fid.readline()
-        Nlines = 1
-
-        while "Row" not in linestring:
-            Nlines += 1
-            linestring = fid.readline()
-            if Nlines > 1:
-                ct = linestring.split("\t")
-                fieldname = ct[0][2:-1]
-                fieldname = fieldname.replace(" ", "")
-
-                if "Scanner Center Position" in linestring:
-                    fieldname = fieldname[:-5]
-                    params[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Scan Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Pixel Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [int(ct[2]), int(ct[3]), int(ct[4])]
-
-                elif "Interferometer Center/Distance" in linestring:
-                    fieldname = fieldname.replace("/", "")
-                    params[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Regulator" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Q-Factor" in linestring:
-                    fieldname = fieldname.replace("-", "")
-                    params[fieldname] = float(ct[2])
-
-                else:
-                    fieldname = ct[0][2:-1]
-                    fieldname = fieldname.replace(" ", "")
-                    val = ct[2]
-                    val = val.replace(",", "")
-                    try:
-                        params[fieldname] = float(val)
-                    except:
-                        params[fieldname] = val.strip()
-
-        channels = linestring.split("\t")
-        fid.close()
-
-        if "PTE+" in params["Scan"]:
-            C_data = np.genfromtxt(self.filename, skip_header=Nlines, encoding="utf-8")
-        else:
-            C_data = np.genfromtxt(self.filename, skip_header=Nlines)
-
-        for i in range(len(channels) - 1):
-            data[channels[i]] = C_data[:, i]
-
-        return data, params
-
-
-class NeaInterferogramReader(Reader):
-    def __init__(self, fullfilepath=None):
-        super().__init__(fullfilepath)
-
-    def read(self):
-        # reader tested for neascan version 2.1.10719.0
-        fid = open(self.filename, errors="replace")
-        data = {}
-        params = {}
-
-        linestring = fid.readline()
-        Nlines = 1
-
-        while "Version" not in linestring:
-            Nlines += 1
-            linestring = fid.readline()
-            if Nlines > 1:
-                ct = linestring.split("\t")
-                fieldname = ct[0][2:-1]
-                fieldname = fieldname.replace(" ", "")
-
-                if "Scanner Center Position" in linestring:
-                    fieldname = fieldname[:-5]
-                    params[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Scan Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Pixel Area" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [int(ct[2]), int(ct[3]), int(ct[4])]
-
-                elif "Averaging" in linestring:
-                    # fieldname = fieldname[:-7]
-                    params[fieldname] = int(ct[2])
-
-                elif "Interferometer Center/Distance" in linestring:
-                    fieldname = fieldname.replace("/", "")
-                    params[fieldname] = [float(ct[2]), float(ct[3])]
-
-                elif "Regulator" in linestring:
-                    fieldname = fieldname[:-7]
-                    params[fieldname] = [float(ct[2]), float(ct[3]), float(ct[4])]
-
-                elif "Q-Factor" in linestring:
-                    fieldname = fieldname.replace("-", "")
-                    params[fieldname] = float(ct[2])
-
-                else:
-                    fieldname = ct[0][2:-1]
-                    fieldname = fieldname.replace(" ", "")
-                    val = ct[2]
-                    val = val.replace(",", "")
-                    try:
-                        params[fieldname] = float(val)
-                    except:
-                        params[fieldname] = val.strip()
-
-        if "Version:" in linestring:
-            linestring = fid.readline()
-            channels = linestring.split("\t")
-            for i, channel in enumerate(channels):
-                channels[i] = channel.split(" ")[0]
-        else:
-            channels = linestring.split("\t")
-
-        fid.close()
-
-        C_data = np.genfromtxt(self.filename, skip_header=Nlines)
-
-        for i in range(len(channels) - 1):
-            data[channels[i]] = C_data[1:, i]
-
-        return data, params
-
-
-class NeaSpectrumGeneralReader(Reader):
-    def __init__(self, fullfilepath=None, output="dict"):
-        super().__init__(fullfilepath)
-        self.output = output
-
-    def lineparser(self, linestring, params: dict):
+    @staticmethod
+    def parseline(linestring, params={}):
         ct = linestring.split("\t")
         fieldname = ct[0][2:-1]
         fieldname = fieldname.replace(" ", "")
@@ -278,7 +76,10 @@ class NeaSpectrumGeneralReader(Reader):
 
         elif "Interferometer Center/Distance" in linestring:
             fieldname = fieldname.replace("/", "")
-            params[fieldname] = [float(ct[2]), float(ct[3])]
+            params[fieldname] = [
+                float(ct[2].replace(",", "")),
+                float(ct[3].replace(",", "")),
+            ]
 
         elif "Regulator" in linestring:
             fieldname = fieldname[:-7]
@@ -300,7 +101,7 @@ class NeaSpectrumGeneralReader(Reader):
 
         return params
 
-    def read_header(self):
+    def read(self):
         params = {}
         with open(self.filename, encoding="utf8") as f:
             # Read www.neaspec.com
@@ -309,19 +110,37 @@ class NeaSpectrumGeneralReader(Reader):
             while f:
                 line = f.readline()
                 count = count + 1
-                if line[0] not in ("#", "\n"):
+                try:
+                    if line[0] not in ("#", "\n"):
+                        break
+                    if line[0] == "#":
+                        params = NeaHeaderReader.parseline(line, params)
+                except IndexError:
                     break
-                if line[0] == "#":
-                    params = self.lineparser(line, params)
-            channels = line.split("\t")
-            channels = [channel.strip() for channel in channels[:-1]]
+
+            channels = line.strip().split("\t")
 
         return channels, params
+
+
+class NeaInfoReader(NeaHeaderReader):
+    def __init__(self, fullfilepath=None):
+        super().__init__(fullfilepath)
+
+    def read(self):
+        _, infodict = super().read()
+        return infodict
+
+
+class NeaSpectralReader(Reader):
+    def __init__(self, fullfilepath=None, output="dict"):
+        super().__init__(fullfilepath)
+        self._output = output
 
     def read(self):
         data = {}
 
-        channels, params = self.read_header()
+        channels, params = NeaHeaderReader(self.filename).read()
         channels.append("")
 
         count = len(list(params.keys())) + 2
@@ -338,7 +157,7 @@ class NeaSpectrumGeneralReader(Reader):
         cols_to_keep = [c for c in data.columns if c != ""]
         data = data[cols_to_keep]
 
-        if self.output == "dict":
+        if self._output == "dict":
             data = data.to_dict("list")
             for key in list(data.keys()):
                 data[key] = np.asarray(data[key])
@@ -366,17 +185,11 @@ class ImageStackReader(Reader):
                 txtpath = recreate_infofile_name_from_path(path)
                 inforeader = NeaInfoReader(txtpath)
                 infodict = inforeader.read()
-                if infodict["TargetWavelength"] == "":
-                    wn = infodict["InterferometerCenterDistance"][0]
-                    wns.append(wn)
-                else:
-                    wn = infodict["TargetWavelength"]
-                    if wn < 50.0:
-                        wn = 10000 / wn
-                    wns.append(wn)
+                wn = get_wl_from_infofile(infodict)
+                wns.append(wn)
             except:
                 wns.append(i)
-        
+
         idxs = np.argsort(np.asarray(wns))
         imagestack = [imagestack[i] for i in idxs]
         wns = [wns[i] for i in idxs]
@@ -384,7 +197,38 @@ class ImageStackReader(Reader):
         return imagestack, wns
 
 
-def get_filenames(folder, pattern):
+def get_wl_from_infofile(infodict: dict):
+    """Returns the wavelength from the info file. If not found, returns 0.0"""
+    try:
+        if infodict["TargetWavelength"] == "":
+            wn = infodict["InterferometerCenterDistance"][0]
+        else:
+            wn = infodict["TargetWavelength"]
+            # NeaSpec is not consistent in the units of the wavelength.
+            # Sometimes it is in cm-1, sometimes in um.
+            if wn < 50.0:
+                wn = 10000 / wn
+    except:
+        wn = None
+    return wn
+
+
+def get_wl_from_filename(filename):
+    """Returns the wavelength from the filename. If not found, returns None"""
+
+    wn = re.findall(
+        r"(?<=[_-])(\d+(?:\.\d+)?)(?=(?:_?cm[-_]1|-?cm[-_]1))", PurePath(filename).name
+    )
+
+    if wn:
+        wn = float(wn[0])
+    else:
+        wn = None
+
+    return wn
+
+
+def get_filenames(folder: str, pattern: str):
     """Returns the filepath of all files in the subfolders of the specified folder that contain pattern string in the filename"""
 
     filepaths = []
@@ -399,11 +243,94 @@ def get_filenames(folder, pattern):
     return filepaths
 
 
-def recreate_infofile_name_from_path(filepath):
+def recreate_infofile_name_from_path(filepath: str):
     """Recreates the name of the info file from the path of the data file"""
 
-    pathparts = list(pathlib.PurePath(filepath).parts)
+    pathparts = list(PurePath(filepath).parts)
     newparts = pathparts[:-1]
     newparts.append(pathparts[-2] + ".txt")
 
-    return str(pathlib.PurePath(*newparts))
+    return str(PurePath(*newparts))
+
+
+class NeaFileLegacyReader(Reader):
+    """Reader for .nea files from older neasnom microscopes"""
+
+    def __init__(self, fullfilepath=None):
+        super().__init__(fullfilepath)
+
+    def read(self):
+        data = {}
+        params = {}
+
+        with open(self.filename, encoding="utf8") as f:
+            h = next(f)  # header
+            h = h.strip()
+            h = h.split("\t")
+
+            l = next(f)
+            l = l.strip()
+            l = l.split("\t")
+
+            f.seek(0)
+            next(f)
+            datacols = np.arange(len(h), len(l))
+            C_data = np.loadtxt(f, dtype="float", usecols=datacols)
+
+            f.seek(0)
+            next(f)
+
+            metacols = np.arange(0, 4)
+            meta = np.loadtxt(
+                f,
+                dtype={"names": tuple(h), "formats": (int, int, int, "S10")},
+                usecols=metacols,
+            )
+            if "Run" in h:
+                runs = np.unique(meta["Run"])
+            else:
+                runs = [0]
+
+            Max_row = len(np.unique(meta["Row"]))
+            Max_col = len(np.unique(meta["Column"]))
+            Max_run = len(runs)
+            Max_omega = np.shape(C_data)[1]
+
+            N_rows = Max_row * Max_col * Max_run * Max_omega
+
+            indexes = np.unique(meta["Channel"], return_index=True)[1]
+            channels = [meta["Channel"][index] for index in sorted(indexes)]
+            channels = [channel.decode("utf-8") for channel in channels]
+
+            for name in h:
+                if name != "Channel":
+                    data[name] = np.array(meta[name])
+
+            for i in range(len(channels)):
+                data[channels[i]] = np.ravel(C_data[i * Max_run : (i + 1) * Max_run, :])
+
+        alpha = 0
+        beta = 0
+        data["Run"] = np.zeros(N_rows)
+        data["Column"] = np.zeros(N_rows)
+        data["Row"] = np.zeros(N_rows)
+
+        for i in range(0, N_rows, Max_omega * Max_run):
+            if beta == Max_row:
+                beta = 0
+                alpha = alpha + 1
+            data["Run"][i : i + Max_omega * Max_run] = np.repeat(
+                np.arange(Max_run), Max_omega
+            )
+            data["Column"][i : i + Max_omega * Max_run] = alpha
+            data["Row"][i : i + Max_omega * Max_run] = beta
+            beta = beta + 1
+
+            params["PixelArea"] = [
+                Max_row,
+                Max_col,
+                Max_omega,
+            ]
+            params["Scan"] = "Fourier Scan"
+
+        return data, params

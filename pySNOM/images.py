@@ -193,25 +193,23 @@ def type_from_channelname(channelname):
 
 
 class Transformation:
-
     def transform(self, data):
         raise NotImplementedError()
 
 
 class MaskedTransformation(Transformation):
-
     def calculate(self, data, mask=None):
         raise NotImplementedError()
-    
+
     def correct(self, data, correction):
-        """ Applies the calculated corrections to the data """
+        """Applies the calculated corrections to the data"""
         if self.datatype == DataTypes.Amplitude:
             return data / correction
         else:
             return data - correction
 
     def transform(self, data, mask=None):
-        """ Calculates and applies the corrections to the data taking into account the mask if given """
+        """Calculates and applies the corrections to the data taking into account the mask if given"""
         correction = self.calculate(data, mask=mask)
         return self.correct(data, correction)
 
@@ -221,22 +219,24 @@ class LineLevel(MaskedTransformation):
         self.method = method
         self.datatype = datatype
 
-    def calculate(self, data, mask = None):
+    def calculate(self, data, mask=None):
         if mask is not None:
-            data = mask*data
+            data = mask * data
 
-        if self.method == 'median':
+        if self.method == "median":
             norm = np.nanmedian(data, axis=1, keepdims=True)
         elif self.method == "mean":
             norm = np.nanmean(data, axis=1, keepdims=True)
         elif self.method == "difference":
             if self.datatype == DataTypes.Amplitude:
                 norm = np.nanmedian(data[1:] / data[:-1], axis=1, keepdims=True)
-                norm = np.append(norm,1)
+                norm = np.append(norm, 1)
             else:
                 norm = np.nanmedian(data[1:] - data[:-1], axis=1, keepdims=True)
-                norm = np.append(norm,0)  # difference does not make sense for the last row
-            norm = np.reshape(norm, (norm.size,1))
+                norm = np.append(
+                    norm, 0
+                )  # difference does not make sense for the last row
+            norm = np.reshape(norm, (norm.size, 1))
         else:
             if self.datatype == DataTypes.Amplitude:
                 norm = 1
@@ -280,22 +280,22 @@ class SimpleNormalize(MaskedTransformation):
         self.datatype = datatype
 
     def calculate(self, data, mask=None):
-        """ Calculates and returns the image corrections using mask (if given) without applying it to the data"""
+        """Calculates and returns the image corrections using mask (if given) without applying it to the data"""
         if mask is not None:
-            data = mask*data
+            data = mask * data
 
         match self.method:
-            case 'median':
+            case "median":
                 norm = np.nanmedian(data)
-            case 'mean':
+            case "mean":
                 norm = np.nanmean(data)
-            case 'manual':
+            case "manual":
                 norm = self.value
-            case 'min':
+            case "min":
                 norm = np.nanmin(data)
 
         return norm
-                
+
 
 class BackgroundPolyFit(MaskedTransformation):
     def __init__(self, xorder=1, yorder=1, datatype=DataTypes.Phase):
@@ -303,10 +303,10 @@ class BackgroundPolyFit(MaskedTransformation):
         self.yorder = int(yorder)
         self.datatype = datatype
 
-    def calculate(self, data, mask = None):
-        """ Calculates and returns the fitted polynomial background using mask (if given) without applying it to the data"""
+    def calculate(self, data, mask=None):
+        """Calculates and returns the fitted polynomial background using mask (if given) without applying it to the data"""
         if mask is not None:
-            data = mask*data
+            data = mask * data
 
         Z = copy.deepcopy(data)
         x = list(range(0, Z.shape[1]))
@@ -333,24 +333,31 @@ class BackgroundPolyFit(MaskedTransformation):
             A = np.vstack(basis).T
             c, r, rank, s = np.linalg.lstsq(A, b, rcond=None)
 
-            background = np.sum(c[:, None, None] * np.array(get_basis(X, Y, self.xorder, self.yorder)).reshape(len(basis), *X.shape),axis=0)
-            
+            background = np.sum(
+                c[:, None, None]
+                * np.array(get_basis(X, Y, self.xorder, self.yorder)).reshape(
+                    len(basis), *X.shape
+                ),
+                axis=0,
+            )
+
         except ValueError:
             background = np.ones(np.shape(data))
             print("X and Y order must be integer!")
 
         return background
 
-        
+
 # TODO: Helper functions to create masks or turn other types of masks into 1/Nan mask
-def mask_from_booleans(bool_mask, bad_values = False):
-    """ Turn a boolean array to an array conatining nans and ones"""
+def mask_from_booleans(bool_mask, bad_values=False):
+    """Turn a boolean array to an array conatining nans and ones"""
     mshape = np.shape(bool_mask)
-    return np.where(bool_mask==bad_values,np.nan*np.ones(mshape),np.ones(mshape))
+    return np.where(bool_mask == bad_values, np.nan * np.ones(mshape), np.ones(mshape))
+
 
 def mask_from_datacondition(condition):
     mshape = np.shape(condition)
-    return np.where(condition,np.nan*np.ones(mshape),np.ones(mshape))
+    return np.where(condition, np.nan * np.ones(mshape), np.ones(mshape))
 
 
 class CalculateOpticalFlow(Transformation):
@@ -468,7 +475,7 @@ def create_nparray_stack(measlist):
     return stack
 
 
-def dict_from_imagestack(X, channelname, wn=None, is_interferogram = True):
+def dict_from_imagestack(X, channelname, wn=None, is_interferogram=True):
     """Converts the image stack into a pySNOM spectra or interferograms compatible dictionary"""
     final_dict = {}
     params = {}
@@ -501,11 +508,15 @@ def dict_from_imagestack(X, channelname, wn=None, is_interferogram = True):
 
     return final_dict, params
 
+
 def flatten_stack(imagestack):
-    """ Flatten out values in an image stack to be aneble to add it to spectral dictionaries """
+    """Flatten out values in an image stack to be aneble to add it to spectral dictionaries"""
     imagestack = np.asarray(imagestack)
-    flattened_values = imagestack.reshape((imagestack.shape[0], imagestack.shape[1] * imagestack.shape[2]))
+    flattened_values = imagestack.reshape(
+        (imagestack.shape[0], imagestack.shape[1] * imagestack.shape[2])
+    )
     return np.ravel(flattened_values, order="F")
+
 
 def shifted_cross_section(rect1: list, rect2: list):
     """Calculates the cross-section of two rectangle shifted to each other"""
