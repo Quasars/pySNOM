@@ -340,3 +340,44 @@ class NeaFileLegacyReader(Reader):
             params["Scan"] = "Fourier Scan"
 
         return data, params
+    
+class ImageStackXYZReader(Reader):
+    """Reads a list of images from the subfolders of the specified folder by loading the files that contain the pattern string int the filename"""
+
+    def __init__(self, fullfilepath=None):
+        super().__init__(fullfilepath)
+
+    def read(self):
+
+        if self.filename is None:
+            raise ValueError('No folder specified')
+        else:
+            with open(self.filename, encoding="utf8") as f:
+                x = next(f)  # header
+                x = x.strip()
+                x = x.split("\t")
+
+                f.seek(0)
+                next(f)
+                datacols = np.arange(2, len(x)+2)
+                C_data = np.loadtxt(f, dtype="float", usecols=datacols)
+                
+                f.seek(0)
+                next(f)
+
+                metacols = np.arange(0, 2)
+                meta = np.loadtxt(
+                f,
+                dtype={"names": ('Row','Column'), "formats": (float,float)},
+                usecols=metacols,
+                )
+
+                Max_row = len(np.unique(meta["Row"]))
+                Max_col = len(np.unique(meta["Column"]))
+                Max_omega = len(x)
+
+                image_stack = []
+                for i in range(Max_omega):
+                    image_stack.append(np.reshape(C_data[:, i], (Max_col, Max_row)))
+
+                return image_stack, np.array(x)
