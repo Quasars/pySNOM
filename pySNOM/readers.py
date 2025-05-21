@@ -380,4 +380,9 @@ class ImageStackXYZReader(Reader):
                 for i in range(Max_omega):
                     image_stack.append(np.reshape(C_data[:, i], (Max_col, Max_row)))
 
-                return image_stack, np.array(x)
+                try:
+                    x = np.array([float(xi) for xi in x])
+                except ValueError:
+                    x = None
+
+                return image_stack, x
