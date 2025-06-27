@@ -1,0 +1,48 @@
+# www.neaspec.com
+# Scan:	 	AFM-Raman/PL Scan (Tapping Mode)
+# Project:	 	KJK - Wiegner RCP - SM007
+# Description:	 	Area2
+# Date:	 	05/14/2025 17:07:02
+# Scanner Center Position (X, Y):	[µm]	52.83	53.80	 
+# Rotation:	[°]	0	 	 
+# Scan Area (X, Y, Z):	[µm]	5.000	5.000	0.000
+# Pixel Area (X, Y, Z):	[px]	2	1	1
+# Averaging:	 	1	 	 
+# Integration time:	[ms]	10	 	 
+# Laser Source:	 	532 nm visible laser	
+# Detector:	 	VIS
+# Target Wavelength:	[µm]		 	 
+# Demodulation Mode:	 	Fourier
+# Tip Frequency:	[Hz]	56,332.262	 	 
+# Tip Amplitude:	[mV]	10.000	 	 
+# Tapping Amplitude:	[nm]	44.401	 	 
+# Modulation Frequency:	[Hz]	0.000	 	 
+# Modulation Amplitude:	[mV]	0.000	 	 
+# Modulation Offset:	[mV]	0.000	 	 
+# Setpoint:	[%]	80.28	 	 
+# Regulator (P, I, D):	 	6.394934	13.411389	1.000000
+# Tip Potential:	[mV]	0.000	 	 
+# M1A Scaling:	[nm/V]	1.800	 	 
+# M1A Cantilever Factor:	 	2.449	 	 
+# Q-Factor:	 	157.5	 	 
+# Version:	 	2.3.13115.0
+# CCD Pixels:	[px]	1340	 	 
+# Spectral Range:	[nm]	533.186	792.054	 
+# Exposure Time:	[s]	0.100	 	 
+# Input slit:	 	Direct Input	 	 
+# Output slit:	 	Direct	 	 
+# Shutter:	 	Open	 	 
+# Grating Offset:	 	0	 	 
+# Focus Mirror:	[nm]	0	 	 
+# Camera:	 	CCD	 	 
+# Temperature:	[°C]	-75.0	 	 
+# Grating:	[l/mm]	300.000	750nm	 
+Row	Column	Wavelength	Index	Data	Z
+0	0	533186.4014	0	11.0000	0.0000
+0	0	533383.8501	1	-5.0000	0.0000
+0	0	533581.2988	2	-2.0000	0.0000
+0	0	533778.7476	3	7.0000	0.0000
+0	1	533186.4014	0	5.0000	0.0000
+0	1	533383.8501	1	-4.0000	0.0000
+0	1	533581.2988	2	3.0000	0.0000
+0	1	533778.7476	3	-1.0000	0.0000

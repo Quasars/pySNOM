@@ -3,7 +3,9 @@ from enum import Enum
 from pySNOM.images import type_from_channelname
 from pySNOM.defaults import Defaults
 
-MeasurementModes = Enum("MeasurementModes", ["None", "nanoFTIR", "PsHet", "PTE"])
+MeasurementModes = Enum(
+    "MeasurementModes", ["None", "nanoFTIR", "PsHet", "PTE", "nanoRaman"]
+)
 DataTypes = Enum("DataTypes", ["Amplitude", "Phase", "Complex", "Topography"])
 ChannelTypes = Enum("ChannelTypes", ["None", "Optical", "Mechanical"])
 ScanTypes = Enum("ScanTypes", ["Point", "LineScan", "HyperScan"])
@@ -219,19 +221,29 @@ class Tools:
         if params["Scan"] == "Fourier Scan":
             n = 2
 
-        for channel in list(data.keys()):
+        allchannels = list(data.keys())
+        if "Depth" in allchannels:
+            spectral_depth = len(np.unique(data["Depth"]))
+        elif "Index" in allchannels:
+            spectral_depth = len(np.unique(data["Index"]))
+        elif "Omega" in allchannels:
+            spectral_depth = len(np.unique(data["Omega"]))
+        else:
+            spectral_depth = params["PixelArea"][2] * n
+
+        for channel in allchannels:
             # Point spectrum
             if params["PixelArea"][1] == 1 and params["PixelArea"][0] == 1:
-                data[channel] = np.reshape(data[channel], (params["PixelArea"][2] * n))
+                data[channel] = np.reshape(data[channel], (spectral_depth))
 
             # Linescan and HyperScan
             else:
-                data[data[channel]] = np.reshape(
+                data[channel] = np.reshape(
                     data[channel],
                     (
                         params["PixelArea"][0],
                         params["PixelArea"][1],
-                        params["PixelArea"][2] * n,
+                        spectral_depth,
                     ),
                 )
 
