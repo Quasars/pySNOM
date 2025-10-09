@@ -4,11 +4,11 @@
 # Description:	 	NeaSpec-Slow-Arrowhead-Clean-REV2-45avg
 # Date:	 	05/19/2024 16:59:10
 # Scanner Center Position (X, Y):	[µm]	46.77	49.79	 
-# Rotation:	[°]	0	 	 
+# Rotation:	[°]	45	 	 
 # Scan Area (X, Y, Z):	[µm]	1.000	0.000	0.000
 # Pixel Area (X, Y, Z):	[px]	2	1	2
 # Interferometer Center/Distance:	[µm]	470.000	490.000	 
-# Averaging:	 	45	 	 
+# Averaging:	 	4	 	 
 # Integration time:	[ms]	20	 	 
 # Wavenumber Scaling:	 	1.003656	 	 
 # Laser Source:	 	
