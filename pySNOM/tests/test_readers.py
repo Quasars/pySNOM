@@ -64,6 +64,38 @@ class TestReaders(unittest.TestCase):
             params["Scan"], "AFM-Raman/PL Scan (Tapping Mode)"
         )
 
+    def test_general_reader_multipoint(self):
+        f = "datasets/testspectrum_multipoint.txt"
+        file_reader = readers.NeaSpectralReader(os.path.join(pySNOM.__path__[0], f))
+        data, params = file_reader.read()
+
+        np.testing.assert_almost_equal(
+            data["X"],
+            [
+                46.41644661,
+                46.41644661,
+                46.41644661,
+                46.41644661,
+                47.12355339,
+                47.12355339,
+                47.12355339,
+                47.12355339,
+            ],
+        )
+        np.testing.assert_almost_equal(
+            data["Y"],
+            [
+                49.43644661,
+                49.43644661,
+                49.43644661,
+                49.43644661,
+                50.14355339,
+                50.14355339,
+                50.14355339,
+                50.14355339,
+            ],
+        )
+
     def test_legacy_nea_reader(self):
         f = "datasets/neafile_test_ifg.nea"
         file_reader = readers.NeaFileLegacyReader(os.path.join(pySNOM.__path__[0], f))
