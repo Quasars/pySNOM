@@ -91,6 +91,19 @@ class NeaSpectrum:
         """Property - scantype (ScanType Enum name)"""
         return self._parameters
 
+    def add_channel(self, values, channelname, zerofilling=1):
+        """Adds a new channel to data dictionary"""
+        if channelname not in list(self._data.keys()):
+            self._data[channelname] = np.reshape(
+                values,
+                (
+                    int(self.parameters["PixelArea"][0]),
+                    int(self.parameters["PixelArea"][1]),
+                    int(self.parameters["PixelArea"][2]*zerofilling),
+                ),
+            )
+        else:
+            raise ValueError
 
 class SingleChannelSpectrum(NeaSpectrum):
     def __init__(
@@ -228,6 +241,10 @@ class Tools:
             spectral_depth = len(np.unique(data["Index"]))
         elif "Omega" in allchannels:
             spectral_depth = len(np.unique(data["Omega"]))
+        elif "Wavenumber" in allchannels:
+            spectral_depth = len(np.unique(data["Wavenumber"]))
+        elif "Wavelength" in allchannels:
+            spectral_depth = len(np.unique(data["Wavelength"]))
         else:
             spectral_depth = params["PixelArea"][2] * n
 
