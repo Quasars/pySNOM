@@ -9,7 +9,7 @@ from .readers import Reader
 from .spectra import NeaSpectrum
 from .interferograms import NeaInterferogram
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 __author__ = "Gergely Németh, Ferenc Borondics"
 __credits__ = "Wigner Research Centre for Physics, Synchrotron SOLEIL"
 __all__ = [
