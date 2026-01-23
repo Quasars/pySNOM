@@ -73,6 +73,15 @@ class TestReaders(unittest.TestCase):
         np.testing.assert_array_equal(list(data.keys())[-1], "M")
         np.testing.assert_string_equal(params["Scan"], "Fourier Scan")
 
+    def test_xyz_reader(self):
+        f = "datasets/test_xyz_read.xyz"
+        file_reader = readers.ImageStackXYZReader(os.path.join(pySNOM.__path__[0], f))
+        data, wn = file_reader.read()
+
+        np.testing.assert_array_equal(wn, np.array([225, 225.818, 226.636]))
+        np.testing.assert_equal(np.shape(data), (3, 1, 5))
+        np.testing.assert_array_equal(data[2], [[36.7867, 37.7868, 34.9154, 36.6104, 35.8703]])
+
 
 if __name__ == "__main__":
     unittest.main()
