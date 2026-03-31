@@ -5,6 +5,7 @@ import pandas as pd
 import os
 from pathlib import PurePath
 import re
+from pySNOM.images import Transformation
 
 
 class Reader:
@@ -157,6 +158,11 @@ class NeaSpectralReader(Reader):
 
         cols_to_keep = [c for c in data.columns if c != ""]
         data = data[cols_to_keep]
+
+        xpos, ypos = PositionTransformer().transform(data, params)
+
+        data.insert(2, "X", xpos)
+        data.insert(3, "Y", ypos)
 
         if self._output == "dict":
             data = data.to_dict("list")
@@ -340,3 +346,84 @@ class NeaFileLegacyReader(Reader):
             params["Scan"] = "Fourier Scan"
 
         return data, params
+
+
+class PositionTransformer(Transformation):
+    def transform(self, data, measparams):
+        Max_row = len(np.unique(data["Row"]))
+        Max_col = len(np.unique(data["Column"]))
+
+        if "Depth" in data:
+            Max_omega = len(np.unique(data["Depth"]))
+        elif "Index" in data:
+            Max_omega = len(np.unique(data["Index"]))
+        elif "Omega" in data:
+            Max_omega = len(np.unique(data["Omega"]))
+        else:
+            raise ValueError("Variable index not found")
+
+        if "Run" in data:
+            Max_run = len(np.unique(data["Run"]))
+        else:
+            Max_run = 1
+
+        # Calculate coordinates for each point if parameters are given
+        if "Rotation" in measparams:
+            angle = np.radians(measparams["Rotation"])
+        else:
+            angle = 0
+        if "ScanArea" in measparams:
+            width = measparams["ScanArea"][0]
+            height = measparams["ScanArea"][1]
+        else:
+            width = Max_col if Max_col > 1 else 0
+            height = Max_row if Max_row > 1 else 0
+        if "ScannerCenterPosition" in measparams:
+            xoff = measparams["ScannerCenterPosition"][0]
+            yoff = measparams["ScannerCenterPosition"][1]
+        else:
+            xoff = 0.0
+            yoff = 0.0
+
+        # Create the list of points centered to the origo
+        X, Y = np.meshgrid(
+            np.linspace(-width / 2, width / 2, Max_col),
+            np.linspace(-height / 2, height / 2, Max_row),
+        )
+        xvec = X.ravel()
+        yvec = Y.ravel()
+        xpos = []
+        ypos = []
+        # Rotated the coordinate system to match orientation
+        c, s = np.cos(angle), np.sin(angle)
+        R = np.array(((c, -s), (s, c)))
+        for i in range(len(xvec)):
+            vec = np.array([xvec[i], yvec[i]])
+            vec = np.matmul(R, vec)
+            vec[0] += xoff
+            vec[1] += yoff
+            xpos.append(vec[0])
+            ypos.append(vec[1])
+        # Reshape
+        xpos = np.reshape(np.array(xpos), (Max_col, Max_row))
+        ypos = np.reshape(np.array(ypos), (Max_col, Max_row))
+
+        alpha = 0
+        beta = 0
+
+        x = np.zeros((Max_row * Max_col * Max_omega * Max_run, 1))
+        y = np.zeros((Max_row * Max_col * Max_omega * Max_run, 1))
+
+        for i in range(0, Max_row * Max_col * Max_omega * Max_run, Max_omega * Max_run):
+            if beta == Max_row:
+                beta = 0
+                alpha = alpha + 1
+
+            for jrun in range(Max_run):
+                idx = slice(i + jrun * Max_omega, i + (jrun + 1) * Max_omega)
+                x[idx] = xpos[alpha, beta]
+                y[idx] = ypos[alpha, beta]
+
+            beta = beta + 1
+
+        return x, y
