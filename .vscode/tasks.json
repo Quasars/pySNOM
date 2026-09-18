@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Docs: Rebuild HTML",
+            "type": "shell",
+            "command": "conda run -n odev cmd.exe /c \"cd /d ${workspaceFolder}\\docs & call make.bat html\"",
+            "options": {
+                "shell": {
+                    "executable": "powershell.exe",
+                    "args": [
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command"
+                    ]
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
