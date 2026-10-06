@@ -20,7 +20,7 @@ requirements:
     - setuptools_scm
   run:
     - python >=3.10
-    - numpy >=1.24.0,<2.3.0
+    - numpy >=1.24.0
     - gwyfile >=0.2.0
     - scipy
     - gsffile
